@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Matrix Love Code</title>
+<style>
+  :root{
+    --bg:#000000;
+    --pink:#ff2d7a;
+    --pink-soft:#ff8fb8;
+    --white:#f5f5ff;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%;
+    margin:0;
+    background:var(--bg);
+    overflow:hidden;
+    font-family:'Courier New', monospace;
+  }
+
+  #matrix, #heart{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  #matrix{ z-index:1; }
+  #heart{ z-index:2; opacity:0; transition:opacity 1.4s ease; pointer-events:none; }
+  #heart.show{ opacity:1; }
+
+  #message{
+    position:fixed;
+    left:0; right:0;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:3;
+    text-align:center;
+    padding:0 8vw;
+    pointer-events:none;
+  }
+  #message span{
+    display:inline-block;
+    font-size:clamp(20px,6vw,46px);
+    font-weight:700;
+    color:var(--white);
+    text-shadow:0 0 8px var(--pink), 0 0 22px var(--pink), 0 0 40px var(--pink-soft);
+    opacity:0;
+    letter-spacing:1px;
+    transition:opacity .9s ease, transform .9s ease;
+    transform:scale(.85);
+  }
+  #message span.on{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  #final-text{
+    position:fixed;
+    left:0; right:0;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:4;
+    text-align:center;
+    font-size:clamp(16px,4.6vw,30px);
+    font-weight:700;
+    color:#fff2f6;
+    text-shadow:0 0 6px #ff2d7a, 0 0 18px #ff2d7a;
+    opacity:0;
+    transition:opacity 1.5s ease 1.6s;
+    pointer-events:none;
+    padding:0 10vw;
+  }
+  #final-text.show{ opacity:1; }
+
+  #replay{
+    position:fixed;
+    bottom:calc(24px + env(safe-area-inset-bottom,0px));
+    left:50%;
+    transform:translateX(-50%);
+    z-index:5;
+    background:rgba(255,45,122,.12);
+    border:1px solid var(--pink);
+    color:var(--pink-soft);
+    font-family:inherit;
+    font-size:13px;
+    letter-spacing:.5px;
+    padding:9px 18px;
+    border-radius:999px;
+    opacity:0;
+    transition:opacity .8s ease 1s;
+    cursor:pointer;
+  }
+  #replay.show{ opacity:1; pointer-events:auto; }
+  #replay:active{ transform:translateX(-50%) scale(.96); }
+</style>
+</head>
+<body>
+
+<canvas id="matrix"></canvas>
+<canvas id="heart"></canvas>
+<div id="message"><span id="msgText"></span></div>
+<div id="final-text">I Love You Milka ❤</div>
+<button id="replay">Putar Ulang</button>
+
+<script>
+/* ---------------- Matrix rain ---------------- */
+const mCanvas = document.getElementById('matrix');
+const mCtx = mCanvas.getContext('2d');
+let w, h, cols, drops, fontSize;
+
+function sizeCanvas(){
+  w = mCanvas.width = window.innerWidth;
+  h = mCanvas.height = window.innerHeight;
+  fontSize = Math.max(14, Math.round(w/38));
+  cols = Math.floor(w / fontSize);
+  drops = new Array(cols).fill(0).map(()=> Math.random()*-40);
+
+  heartCanvas.width = w;
+  heartCanvas.height = h;
+}
+window.addEventListener('resize', sizeCanvas);
+
+const chars = "LOVEYOU❤♡01".split("");
+
+function drawMatrix(){
+  mCtx.fillStyle = 'rgba(0,0,0,0.14)';
+  mCtx.fillRect(0,0,w,h);
+  mCtx.font = fontSize + 'px monospace';
+
+  for(let i=0;i<cols;i++){
+    const ch = chars[Math.floor(Math.random()*chars.length)];
+    const x = i*fontSize;
+    const y = drops[i]*fontSize;
+
+    if(ch === '❤' || ch === '♡'){
+      mCtx.fillStyle = '#ff5c8d';
+    } else {
+      mCtx.fillStyle = Math.random() < 0.06 ? '#ffd6e4' : '#ff2d7a';
+    }
+    mCtx.globalAlpha = 0.75;
+    mCtx.fillText(ch, x, y);
+    mCtx.globalAlpha = 1;
+
+    if(y > h && Math.random() > 0.975){
+      drops[i] = 0;
+    }
+    drops[i]++;
+  }
+  requestAnimationFrame(drawMatrix);
+}
+
+/* ---------------- Heart particle canvas ---------------- */
+const heartCanvas = document.getElementById('heart');
+const hCtx = heartCanvas.getContext('2d');
+let heartPoints = [];
+let heartProgress = 0;
+let heartAnimating = false;
+
+function heartXY(t, scale, cx, cy){
+  // classic parametric heart curve
+  const x = 16*Math.pow(Math.sin(t),3);
+  const y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+  return { x: cx + x*scale, y: cy - y*scale };
+}
+
+function buildHeartPoints(){
+  heartPoints = [];
+  const cx = w/2, cy = h*0.42;
+  const scale = Math.min(w,h)/26;
+
+  // outline
+  for(let i=0;i<260;i++){
+    const t = (i/260)*Math.PI*2;
+    const p = heartXY(t, scale, cx, cy);
+    heartPoints.push({x:p.x, y:p.y, r: 2.4+Math.random()*2.2, delay: Math.random()*0.6});
+  }
+  // fill (scattered interior points)
+  for(let i=0;i<420;i++){
+    const t = Math.random()*Math.PI*2;
+    const rr = Math.sqrt(Math.random());
+    const p = heartXY(t, scale*rr, cx, cy);
+    heartPoints.push({x:p.x, y:p.y, r: 1.2+Math.random()*2, delay: 0.15+Math.random()*0.9});
+  }
+}
+
+function animateHeart(ts, start){
+  if(!heartAnimating) return;
+  const elapsed = (ts-start)/1000;
+  hCtx.clearRect(0,0,w,h);
+
+  heartPoints.forEach(p=>{
+    const local = Math.min(1, Math.max(0, (elapsed - p.delay)/0.8));
+    if(local <= 0) return;
+    hCtx.beginPath();
+    hCtx.arc(p.x, p.y, p.r*local, 0, Math.PI*2);
+    const grad = hCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*local*3);
+    grad.addColorStop(0,'rgba(255,120,170,'+ (0.9*local) +')');
+    grad.addColorStop(1,'rgba(255,45,122,0)');
+    hCtx.fillStyle = grad;
+    hCtx.fill();
+  });
+
+  if(elapsed < 2.2){
+    requestAnimationFrame((t)=>animateHeart(t,start));
+  }
+}
+
+function startHeart(){
+  buildHeartPoints();
+  document.getElementById('heart').classList.add('show');
+  heartAnimating = true;
+  requestAnimationFrame((t)=>animateHeart(t,t));
+  document.getElementById('final-text').classList.add('show');
+}
+
+/* ---------------- Message sequence ---------------- */
+const messages = [
+  "Hai Milka...",
+  "Aku tau lagi PMS, badan gampang capek dan gampang baper",
+  "Tapi itu wajar, gak perlu dilawan sendirian",
+  "Kamu boleh rebahan lebih lama hari ini",
+  "Minum yang hangat, makan yang enak, istirahat cukup",
+  "Kamu tetap kuat, tetap cantik, tetap luar biasa",
+  "Aku bangga sama kamu, pelan-pelan aja jalaninnya",
+  "Bukan lewat kata-kata biasa",
+  "Tapi lewat kode kecil ini"
+];
+
+const msgEl = document.getElementById('msgText');
+let idx = 0;
+
+function showNextMessage(){
+  if(idx >= messages.length){
+    msgEl.classList.remove('on');
+    setTimeout(startHeart, 500);
+    setTimeout(()=> document.getElementById('replay').classList.add('show'), 2600);
+    return;
+  }
+  msgEl.classList.remove('on');
+  setTimeout(()=>{
+    msgEl.textContent = messages[idx];
+    void msgEl.offsetWidth;
+    msgEl.classList.add('on');
+    idx++;
+    setTimeout(showNextMessage, 2300);
+  }, 350);
+}
+
+function resetSequence(){
+  idx = 0;
+  heartAnimating = false;
+  document.getElementById('heart').classList.remove('show');
+  document.getElementById('final-text').classList.remove('show');
+  document.getElementById('replay').classList.remove('show');
+  hCtx.clearRect(0,0,w,h);
+  msgEl.classList.remove('on');
+  msgEl.textContent = '';
+  setTimeout(showNextMessage, 900);
+}
+
+document.getElementById('replay').addEventListener('click', resetSequence);
+
+/* ---------------- Init ---------------- */
+sizeCanvas();
+drawMatrix();
+setTimeout(showNextMessage, 1200);
+</script>
+</body>
+</html>
